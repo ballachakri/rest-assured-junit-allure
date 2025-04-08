@@ -10,8 +10,9 @@ public class PropertiesReader {
     public static Properties readProperties() throws IOException {
 
         Properties properties = new Properties();
-        File file = new File("src/test/resources/test.properties");
-        FileInputStream fis = new FileInputStream(file);
+
+        //File file = new File("src/test/resources/test.properties");
+        FileInputStream fis = new FileInputStream("src/test/resources/test.properties");
         properties.load(fis);
         return properties;
 

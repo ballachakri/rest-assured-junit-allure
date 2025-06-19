@@ -1,6 +1,5 @@
 package utils;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
@@ -11,7 +10,6 @@ public class PropertiesReader {
 
         Properties properties = new Properties();
 
-        //File file = new File("src/test/resources/test.properties");
         FileInputStream fis = new FileInputStream("src/test/resources/test.properties");
         properties.load(fis);
         return properties;

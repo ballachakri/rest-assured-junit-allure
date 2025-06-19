@@ -24,6 +24,7 @@ public class Helpers {
 
         ObjectMapper objectMapper = new ObjectMapper();
 
+        System.out.println();
         try {
             return objectMapper.writeValueAsString(bookingDetails);
         } catch (JsonProcessingException e) {

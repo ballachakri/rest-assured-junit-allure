@@ -49,5 +49,4 @@ public class BookingDetails {
         this.additionalProperties.put(name, value);
     }
 
-
 }

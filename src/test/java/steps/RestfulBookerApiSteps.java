@@ -18,8 +18,6 @@ import java.util.Map;
 
 public class RestfulBookerApiSteps extends Hooks {
 
-    String BASE_URI = "https://restful-booker.herokuapp.com";
-
     @Step("Get response")
     public Response getResponse(String basePath) {
 
@@ -56,6 +54,7 @@ public class RestfulBookerApiSteps extends Hooks {
         return RestAssured.given().filter(new AllureRestAssured())
                 .baseUri(BASE_URI)
                 .basePath(basePath)
+                .accept("*/*")
                 .contentType(ContentType.JSON)
                 .when()
                 .body(bookingRequestBody)

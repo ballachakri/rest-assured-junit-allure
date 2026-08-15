@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'Maven3'
-        jdk 'JDK21'
-    }
-
     environment {
         ALLURE_VERSION = '2.29.1'
         GITHUB_TOKEN = credentials('GITHUB_TOKEN')
@@ -14,31 +9,35 @@ pipeline {
     stages {
         // Step 1: Check out code
         stage('Checkout') {
-            steps { checkout scm }
+            steps {
+                checkout scm
+            }
         }
 
-        // Step 2: Run tests → generates target/allure-results
+        // Step 2: Run tests with Maven (Windows uses mvn.cmd)
         stage('Run Tests') {
-            steps { sh 'mvn clean test' }
+            steps {
+                bat 'mvn.cmd clean test'
+            }
         }
 
-        // Step 3: Install Allure CLI
+        // Step 3: Download & Install Allure CLI (Windows version)
         stage('Install Allure') {
             steps {
-                sh '''
-                    curl -sL https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz \
-                    | tar -xz -C ${HOME}
-                    export PATH=${HOME}/allure-${ALLURE_VERSION}/bin:$PATH
+                bat '''
+                    curl -L -o allure.zip https://github.com/allure-framework/allure2/releases/download/%ALLURE_VERSION%/allure-%ALLURE_VERSION%.zip
+                    tar -xf allure.zip
+                    set PATH=%CD%\\allure-%ALLURE_VERSION%\\bin;%PATH%
                 '''
             }
         }
 
-        // Step 4: Generate HTML report
+        // Step 4: Generate Allure HTML Report
         stage('Generate Report') {
             steps {
-                sh '''
-                    export PATH=${HOME}/allure-${ALLURE_VERSION}/bin:$PATH
-                    allure generate target/allure-results -o allure-report --clean
+                bat '''
+                    set PATH=%CD%\\allure-%ALLURE_VERSION%\\bin;%PATH%
+                    allure.bat generate target\\allure-results -o allure-report --clean
                 '''
             }
         }
@@ -46,18 +45,28 @@ pipeline {
         // Step 5: Deploy report to GitHub Pages
         stage('Deploy Report') {
             steps {
-                sh '''
+                bat '''
                     git config --global user.name "jenkins-bot"
                     git config --global user.email "jenkins@example.com"
 
-                    git clone --depth=1 --branch=gh-pages https://${GITHUB_TOKEN}@github.com/ballachakri/rest-assured-junit-allure.git gh-pages-repo || mkdir -p gh-pages-repo
+                    REM Clone or create gh-pages folder
+                    git clone --depth=1 --branch=gh-pages https://%GITHUB_TOKEN%@github.com/ballachakri/rest-assured-junit-allure.git gh-pages-repo || mkdir gh-pages-repo
                     cd gh-pages-repo
-                    rm -rf *
-                    cp -r ../allure-report/* .
-                    touch .nojekyll
+
+                    REM Clear old files
+                    del /f /s /q *.* 2>nul
+                    rmdir /s /q . 2>nul
+
+                    REM Copy new report files
+                    xcopy ..\\allure-report\\* . /E /I /Y
+
+                    REM Create .nojekyll file
+                    echo. > .nojekyll
+
+                    REM Commit and push
                     git add .
-                    git commit -m "Allure Report: Build #${BUILD_NUMBER}" || exit 0
-                    git push https://${GITHUB_TOKEN}@github.com/ballachakri/rest-assured-junit-allure.git gh-pages
+                    git commit -m "Allure Report: Build #%BUILD_NUMBER%" || exit 0
+                    git push https://%GITHUB_TOKEN%@github.com/ballachakri/rest-assured-junit-allure.git gh-pages
                 '''
             }
         }

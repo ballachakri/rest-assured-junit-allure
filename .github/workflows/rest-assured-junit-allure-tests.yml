@@ -27,7 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Install and configure Java 21 (matches your project choice)
+      # Step 2: Install and configure Java 21
       # 'temurin' = Adoptium Temurin (standard open-source JDK)
       # 'cache: maven' = saves downloaded dependencies to speed up future runs
       - name: Set up JDK 21
@@ -54,7 +54,6 @@ jobs:
 
       # Step 5: Upload raw Allure results as a build artifact
       # 'if: always()' = saves results even if tests fail
-      # You can download this from the Actions page if needed
       - name: Upload Allure Results
         if: always()
         uses: actions/upload-artifact@v4
@@ -62,24 +61,24 @@ jobs:
           name: allure-results
           path: target/allure-results
 
-      # Step 6: Download and install Allure Commandline
-      # Version 2.29.1 matches exactly the version in your pom.xml
-      # Extracts the archive and adds the 'allure' binary to PATH
-      - name: Install Allure Commandline
-        run: |
-          ALLURE_VERSION=2.29.1
-          curl -o allure.tgz -L https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz
-          tar -xzf allure.tgz
-          echo "$PWD/allure-${ALLURE_VERSION}/bin" >> $GITHUB_PATH
+      # Step 6: Set up Node.js (required for NPM packages)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-      # Step 7: Generate the HTML Allure Report from results
+      # Step 7: Install Allure Commandline via NPM
+      # This installs globally — 'allure' command becomes available automatically
+      - name: Install Allure Commandline via NPM
+        run: npm install -g allure-commandline
+
+      # Step 8: Generate the HTML Allure Report from results
       # --clean = removes old report files before generating new one
       - name: Generate Allure Report
         run: allure generate target/allure-results -o allure-report --clean
 
-      # Step 8: Deploy the generated HTML report to GitHub Pages
+      # Step 9: Deploy the generated HTML report to GitHub Pages
       # Pushes the 'allure-report' folder to 'gh-pages' branch
-      # Report becomes available at: https://ballachakri.github.io/rest-assured-junit-allure/
       - name: Deploy Allure Report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         if: always()   # Deploys report even if some tests failed

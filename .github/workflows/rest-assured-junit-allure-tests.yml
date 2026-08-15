@@ -28,8 +28,6 @@ jobs:
         uses: actions/checkout@v4
 
       # Step 2: Install and configure Java 21
-      # 'temurin' = Adoptium Temurin (standard open-source JDK)
-      # 'cache: maven' = saves downloaded dependencies to speed up future runs
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -37,8 +35,7 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
-      # Step 3: Explicitly cache Maven repository files
-      # Reuses dependencies from previous runs instead of re-downloading
+      # Step 3: Cache Maven dependencies for faster builds
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
@@ -47,13 +44,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Step 4: Run your tests using Maven
-      # This generates the raw Allure result files in target/allure-results
-      - name: Run tests
+      # Step 4: Run tests — this creates target/allure-results/
+      - name: Run tests with Maven
         run: mvn clean test
 
-      # Step 5: Upload raw Allure results as a build artifact
-      # 'if: always()' = saves results even if tests fail
+      # ===== DEBUG: Show what's in the results folder =====
+      - name: List Allure Results Files
+        run: ls -la target/allure-results/
+
+      # Step 5: Upload raw results (optional — for manual download only)
       - name: Upload Allure Results
         if: always()
         uses: actions/upload-artifact@v4
@@ -61,27 +60,31 @@ jobs:
           name: allure-results
           path: target/allure-results
 
-      # Step 6: Set up Node.js (required for NPM packages)
+      # Step 6: Install Allure CLI via NPM (reliable & simple)
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # Step 7: Install Allure Commandline via NPM
-      # This installs globally — 'allure' command becomes available automatically
-      - name: Install Allure Commandline via NPM
+      - name: Install Allure Commandline
         run: npm install -g allure-commandline
 
-      # Step 8: Generate the HTML Allure Report from results
-      # --clean = removes old report files before generating new one
-      - name: Generate Allure Report
+      # Step 7: Generate HTML report — SAME JOB, so path is correct! ✅
+      - name: Generate Allure HTML Report
         run: allure generate target/allure-results -o allure-report --clean
 
-      # Step 9: Deploy the generated HTML report to GitHub Pages
-      # Pushes the 'allure-report' folder to 'gh-pages' branch
+      # Step 8: Upload the generated HTML report (so you can download it as ZIP)
+      - name: Upload Allure HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-html-report
+          path: allure-report
+
+      # Step 9: Deploy report to GitHub Pages
       - name: Deploy Allure Report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
-        if: always()   # Deploys report even if some tests failed
+        if: always()
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}   # Auto-provided by GitHub
-          publish_dir: allure-report                    # Folder to publish
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report

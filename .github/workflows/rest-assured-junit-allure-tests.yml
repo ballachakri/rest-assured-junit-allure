@@ -1,36 +1,37 @@
-name: Maven Tests with Allure Report
+name: Maven Tests (Java Matrix) + Allure Report
 
 on:
   push:
     branches: [ "main", "develop", "master" ]
   pull_request:
     branches: [ "main", "develop", "master" ]
-  workflow_dispatch:  # Allow manual runs from Actions tab
+  workflow_dispatch:
 
 permissions:
-  contents: write      # Needed to deploy Allure report to GitHub Pages
+  contents: write
   pages: write
   id-token: write
 
 jobs:
   test:
-    name: Run Tests & Generate Allure Report
+    name: Java ${{ matrix.java }} / Test & Report
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '11', '17', '21' ]
 
     steps:
-      # Step 1: Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up Java (matches your project requirements)
-      - name: Set up JDK 17
+      - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: ${{ matrix.java }}
           cache: 'maven'
 
-      # Step 3: Cache Maven dependencies for faster builds
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
@@ -39,30 +40,42 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Step 4: Run tests with Maven
       - name: Run tests
         run: mvn clean test
 
-      # Step 5: Upload Allure results as artifact
-      - name: Upload Allure Results
+      - name: Upload Allure Results (Java ${{ matrix.java }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results
+          name: allure-results-java-${{ matrix.java }}
           path: target/allure-results
 
-      # Step 6: Generate Allure Report and deploy to GitHub Pages
-      - name: Generate & Publish Allure Report
-        if: always()
-        uses: simple-elf/allure-report-action@v1.9
-        with:
-          allure_results: target/allure-results
-          allure_report: allure-report
-          gh_pages: gh-pages
+  report:
+    name: Generate & Publish Allure Report
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
 
-      # Step 7: Deploy report to GitHub Pages
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Allure Results (Java 17)
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-java-17
+          path: target/allure-results
+
+      # ✅ Install Allure CLI directly — NO DOCKER NEEDED
+      - name: Install Allure Commandline
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y allure
+
+      - name: Generate Allure Report
+        run: allure generate target/allure-results -o allure-report --clean
+
       - name: Deploy Allure Report to GitHub Pages
-        if: always()
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

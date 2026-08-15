@@ -1,5 +1,9 @@
-name: Maven Tests (Java Matrix) + Allure Report
+name: Maven Tests + Allure Report
 
+# Trigger the workflow on:
+# - Push commits to these branches
+# - Pull requests targeting these branches
+# - Manual trigger from the Actions tab
 on:
   push:
     branches: [ "main", "develop", "master" ]
@@ -7,31 +11,34 @@ on:
     branches: [ "main", "develop", "master" ]
   workflow_dispatch:
 
+# Permissions required to generate and deploy the Allure report
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: write      # Needed to push the gh-pages branch
+  pages: write         # Needed for GitHub Pages deployment API
+  id-token: write      # Needed for secure Pages authentication
 
 jobs:
   test:
-    name: Java ${{ matrix.java }} / Test & Report
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        java: [ '11', '17', '21' ]
+    name: Run Tests & Generate Report
+    runs-on: ubuntu-latest   # Use Ubuntu latest runner image
 
     steps:
+      # Step 1: Check out your repository code into the runner
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK ${{ matrix.java }}
+      # Step 2: Install and configure Java 21 (matches your project choice)
+      # 'temurin' = Adoptium Temurin (standard open-source JDK)
+      # 'cache: maven' = saves downloaded dependencies to speed up future runs
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: ${{ matrix.java }}
+          java-version: '21'
           cache: 'maven'
 
+      # Step 3: Explicitly cache Maven repository files
+      # Reuses dependencies from previous runs instead of re-downloading
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
@@ -40,43 +47,42 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
+      # Step 4: Run your tests using Maven
+      # This generates the raw Allure result files in target/allure-results
       - name: Run tests
         run: mvn clean test
 
-      - name: Upload Allure Results (Java ${{ matrix.java }})
+      # Step 5: Upload raw Allure results as a build artifact
+      # 'if: always()' = saves results even if tests fail
+      # You can download this from the Actions page if needed
+      - name: Upload Allure Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results-java-${{ matrix.java }}
+          name: allure-results
           path: target/allure-results
 
-  report:
-    name: Generate & Publish Allure Report
-    needs: test
-    if: always()
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download Allure Results (Java 17)
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-results-java-17
-          path: target/allure-results
-
-      # ✅ Install Allure CLI directly — NO DOCKER NEEDED
+      # Step 6: Download and install Allure Commandline
+      # Version 2.29.1 matches exactly the version in your pom.xml
+      # Extracts the archive and adds the 'allure' binary to PATH
       - name: Install Allure Commandline
         run: |
-          sudo apt-get update
-          sudo apt-get install -y allure
+          ALLURE_VERSION=2.29.1
+          curl -o allure.tgz -L https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz
+          tar -xzf allure.tgz
+          echo "$PWD/allure-${ALLURE_VERSION}/bin" >> $GITHUB_PATH
 
+      # Step 7: Generate the HTML Allure Report from results
+      # --clean = removes old report files before generating new one
       - name: Generate Allure Report
         run: allure generate target/allure-results -o allure-report --clean
 
+      # Step 8: Deploy the generated HTML report to GitHub Pages
+      # Pushes the 'allure-report' folder to 'gh-pages' branch
+      # Report becomes available at: https://ballachakri.github.io/rest-assured-junit-allure/
       - name: Deploy Allure Report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
+        if: always()   # Deploys report even if some tests failed
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: allure-report
+          github_token: ${{ secrets.GITHUB_TOKEN }}   # Auto-provided by GitHub
+          publish_dir: allure-report                    # Folder to publish

@@ -61,25 +61,41 @@ pipeline {
             }
         }
 
-        // Step 6: Deploy report to GitHub Pages
-        stage('Deploy Report') {
-            steps {
-                bat '''
-                    git config --global user.name "jenkins-bot"
-                    git config --global user.email "jenkins@example.com"
+     stage('Deploy Report') {
+               steps {
+                   bat '''
+                       git config --global user.name "jenkins-bot"
+                       git config --global user.email "jenkins@example.com"
 
-                    git clone --depth=1 --branch=gh-pages https://%GITHUB_TOKEN%@github.com/ballachakri/rest-assured-junit-allure.git gh-pages-repo || mkdir gh-pages-repo
-                    cd gh-pages-repo
-                    if exist *.* (
-                        del /f /s /q *.* 2>nul
-                    )
-                    xcopy ..\\allure-report\\* . /E /I /Y
-                    echo. > .nojekyll
-                    git add .
-                    git commit -m "Allure Report: Build #%BUILD_NUMBER%" || exit 0
-                    git push https://%GITHUB_TOKEN%@github.com/ballachakri/rest-assured-junit-allure.git gh-pages
-                '''
-            }
-        }
+                       REM Clone or create folder
+                       git clone --depth=1 --branch=gh-pages https://%GITHUB_TOKEN%@github.com/ballachakri/rest-assured-junit-allure.git gh-pages-repo || mkdir gh-pages-repo
+
+                       cd gh-pages-repo
+
+                       REM If folder is empty → INITIALIZE new gh-pages branch
+                       if not exist .git (
+                           git init
+                           git remote add origin https://%GITHUB_TOKEN%@github.com/ballachakri/rest-assured-junit-allure.git
+                           git checkout -b gh-pages
+                       )
+
+                       REM Clean old files
+                       if exist *.* (
+                           del /f /s /q *.* 2>nul
+                       )
+
+                       REM Copy new report files
+                       xcopy ..\\allure-report\\* . /E /I /Y
+
+                       REM Required for Allure CSS/JS to work on GitHub Pages
+                       echo. > .nojekyll
+
+                       REM Commit & Push
+                       git add .
+                       git commit -m "Allure Report: Build #%BUILD_NUMBER%" || exit 0
+                       git push -u origin gh-pages --force
+                   '''
+               }
+           }
     }
 }

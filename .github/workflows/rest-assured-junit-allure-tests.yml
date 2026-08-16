@@ -11,7 +11,6 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
-    # ✅ CRITICAL: Give token WRITE PERMISSION!
     permissions:
       contents: write
 
@@ -28,18 +27,23 @@ jobs:
       - name: Run Tests
         run: mvn clean test
 
-      - name: Install Allure
-        run: npm install -g allure-commandline
+      # ✅ FAST DIRECT DOWNLOAD — Replaces slow NPM!
+      - name: Install Allure CLI
+        run: |
+          ALLURE_VERSION=2.29.0
+          echo "Downloading Allure v${ALLURE_VERSION}..."
+          curl -fsSL https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz -o allure.tgz
+          tar -xzf allure.tgz
+          sudo mv allure-${ALLURE_VERSION} /opt/allure
+          sudo ln -sf /opt/allure/bin/allure /usr/local/bin/allure
+          allure --version
 
-      - name: Generate Report
+      - name: Generate Allure Report
         run: allure generate target/allure-results -o allure-report --clean
 
-      # ✅ Deploy with token — NOW HAS WRITE PERMISSION!
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./allure-report
-          enable_jekyll: false  # Auto-adds .nojekyll → sidebar works!
-          user_name: "github-actions[bot]"
-          user_email: "github-actions[bot]@users.noreply.github.com"
+          enable_jekyll: false

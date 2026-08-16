@@ -1,9 +1,5 @@
-name: Maven Tests + Allure Report
+name: Build & Deploy Allure Report
 
-# Trigger the workflow on:
-# - Push commits to these branches
-# - Pull requests targeting these branches
-# - Manual trigger from the Actions tab
 on:
   push:
     branches: [ "main", "develop", "master" ]
@@ -11,80 +7,32 @@ on:
     branches: [ "main", "develop", "master" ]
   workflow_dispatch:
 
-# Permissions required to generate and deploy the Allure report
-permissions:
-  contents: write      # Needed to push the gh-pages branch
-  pages: write         # Needed for GitHub Pages deployment API
-  id-token: write      # Needed for secure Pages authentication
-
 jobs:
-  test:
-    name: Run Tests & Generate Report
-    runs-on: ubuntu-latest   # Use Ubuntu latest runner image
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Check out your repository code into the runner
-      - name: Checkout repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Step 2: Install and configure Java 21
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
           java-version: '21'
-          cache: 'maven'
+          distribution: 'temurin'
 
-      # Step 3: Cache Maven dependencies for faster builds
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      # Step 4: Run tests — this creates target/allure-results/
-      - name: Run tests with Maven
+      - name: Run Tests
         run: mvn clean test
 
-      # ===== DEBUG: Show what's in the results folder =====
-      - name: List Allure Results Files
-        run: ls -la target/allure-results/
-
-      # Step 5: Upload raw results (optional — for manual download only)
-      - name: Upload Allure Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-results
-          path: target/allure-results
-
-      # Step 6: Install Allure CLI via NPM (reliable & simple)
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install Allure Commandline
+      - name: Install Allure
         run: npm install -g allure-commandline
 
-      # Step 7: Generate HTML report — SAME JOB, so path is correct! ✅
-      - name: Generate Allure HTML Report
+      - name: Generate Report
         run: allure generate target/allure-results -o allure-report --clean
 
-      # Step 8: Upload the generated HTML report (so you can download it as ZIP)
-      - name: Upload Allure HTML Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-html-report
-          path: allure-report
-
-      # Step 9: Deploy report to GitHub Pages
-      - name: Deploy Allure Report to GitHub Pages
+      # ✅ Auto-discovers token — NO explicit token line needed!
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
-        if: always()
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: allure-report
+          publish_dir: ./allure-report
+          enable_jekyll: false

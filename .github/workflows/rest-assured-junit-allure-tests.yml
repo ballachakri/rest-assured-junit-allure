@@ -11,6 +11,10 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    # ✅ CRITICAL: Give token WRITE PERMISSION!
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -30,9 +34,12 @@ jobs:
       - name: Generate Report
         run: allure generate target/allure-results -o allure-report --clean
 
-      # ✅ Auto-discovers token — NO explicit token line needed!
+      # ✅ Deploy with token — NOW HAS WRITE PERMISSION!
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./allure-report
-          enable_jekyll: false
+          enable_jekyll: false  # Auto-adds .nojekyll → sidebar works!
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
